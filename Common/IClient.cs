@@ -1,8 +1,7 @@
 ﻿
-namespace Common
+namespace Common;
+
+public interface IClient
 {
-    public interface IClient
-    {
-        Task Run(ClientOptions options);
-    }
+    Task Send(ClientOptions options);
 }
