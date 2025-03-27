@@ -5,7 +5,7 @@ using System.Net.Sockets;
 
 using TcpListener listener = new(IPAddress.Parse("127.0.0.1"), 13000);
 listener.Start();
-IClientProcessor clientProcessor = new ClientProcessorV1();
+IClientProcessor clientProcessor = new ClientProcessorV2();
 while (true)
 {
     TcpClient clientConnection = await listener.AcceptTcpClientAsync();
