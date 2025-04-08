@@ -1,6 +1,9 @@
 ﻿using Common;
+using System.Collections.Generic;
 using System.Net.Sockets;
 using System.Text;
+using System.Text.Json;
+using System.Threading.Tasks;
 
 namespace ClientOuterShell.Clients;
 
@@ -76,13 +79,28 @@ Accept-Language: en-US,en;q=0.5
         {
             throw new Exception("Some data were not sent.");
         }
-        byte[] response = new byte[1];
+        HeaderList headerList = await ParseHeaders(clientSocket);
+        Console.WriteLine(headerList);
+        await clientSocket.DisconnectAsync(false);
+    }
+
+    async Task<HeaderList> ParseHeaders(Socket clientSocket)
+    {
+        string headerString = await GetEntireHeaderListAsString(clientSocket);
+        HeaderList headerList = new(headerString);
+        return headerList;
+    }
+    async Task<string> GetEntireHeaderListAsString(Socket clientSocket)
+    {
+        // HTTP headers and body are separated by \r\n\r\n (double CRLF).
+        // We will check for its occurance to separate HTTP headers from body.
+        byte[] buffer = new byte[1];
         StringBuilder responseBuilder = new();
         bool[] isDoubleCRLF = [false, false, false, false];
         while (true)
         {
-            int bytesRead = await clientSocket.ReceiveAsync(response);
-            char character = (char)response[0];
+            int bytesRead = await clientSocket.ReceiveAsync(buffer);
+            char character = (char)buffer[0];
             if (character == '\n')
             {
                 if (isDoubleCRLF[0] && isDoubleCRLF[1] && isDoubleCRLF[2])
@@ -114,15 +132,34 @@ Accept-Language: en-US,en;q=0.5
 
             if (isDoubleCRLF.All(x => x))
             {
-                Console.WriteLine(responseBuilder.ToString());
+                // Console.WriteLine(responseBuilder.ToString());
                 break;
             }
         }
-        await clientSocket.DisconnectAsync(false);
+        return responseBuilder.ToString();
+    }
+
+    class HeaderList : Dictionary<string, string?>
+    {
+        public HeaderList(string headersAsString)
+        {
+            headersAsString = headersAsString.Substring(0, headersAsString.Length - 4);
+            var lines = headersAsString.Split("\r\n");
+            lines = lines.Where(x => !x.StartsWith("HTTP")).ToArray();
+            lines.Select(x => x.Split(":")).ToList().ForEach(x =>
+            {
+                this[x[0]] = x[1]; // setting the dictionary
+            });
+        }
+
+        public override string ToString()
+        {
+            string str = string.Empty;
+            foreach (var item in this)
+            {
+                str += $"{item.Key} : {item.Value}\r\n";
+            }
+            return str;
+        }
     }
 }
-
-/*
- * In this version I will be parsing the HTTP response headers and figure out the exact content-length
- * to read the correct amount of bytes. This enables me to get the complete response.
- */
