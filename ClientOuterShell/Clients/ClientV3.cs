@@ -1,6 +1,7 @@
 ﻿using Common;
 using System.Collections.Generic;
 using System.Net.Sockets;
+using System.Reflection.PortableExecutable;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -79,8 +80,13 @@ Accept-Language: en-US,en;q=0.5
         {
             throw new Exception("Some data were not sent.");
         }
+        string metaLine = await GetMetaLine(clientSocket); // Get the first line that contains response status code
+        Console.WriteLine(metaLine);
+        Console.WriteLine();
         HeaderList headerList = await ParseHeaders(clientSocket);
-        Console.WriteLine(headerList);
+        var contentLength = int.Parse(headerList["Content-Length"] ?? throw new Exception());
+        Console.WriteLine(contentLength);
+
         await clientSocket.DisconnectAsync(false);
     }
 
@@ -90,6 +96,22 @@ Accept-Language: en-US,en;q=0.5
         HeaderList headerList = new(headerString);
         return headerList;
     }
+
+    private async Task<string> GetMetaLine(Socket clientSocket)
+    {
+        StringBuilder stringBuilder = new();
+        byte[] buffer = new byte[1];
+        int bytesRead = 0;
+        do
+        {
+            bytesRead = await clientSocket.ReceiveAsync(buffer);
+            stringBuilder.Append((char)buffer[0]);
+        }
+        while (bytesRead > 0 && !stringBuilder.ToString().EndsWith("\r\n"));
+        string str = stringBuilder.ToString();
+        return str.Substring(0, str.Length - 2);
+    }
+
     async Task<string> GetEntireHeaderListAsString(Socket clientSocket)
     {
         // HTTP headers and body are separated by \r\n\r\n (double CRLF).
@@ -132,7 +154,6 @@ Accept-Language: en-US,en;q=0.5
 
             if (isDoubleCRLF.All(x => x))
             {
-                // Console.WriteLine(responseBuilder.ToString());
                 break;
             }
         }
@@ -143,12 +164,11 @@ Accept-Language: en-US,en;q=0.5
     {
         public HeaderList(string headersAsString)
         {
-            headersAsString = headersAsString.Substring(0, headersAsString.Length - 4);
-            var lines = headersAsString.Split("\r\n");
-            lines = lines.Where(x => !x.StartsWith("HTTP")).ToArray();
-            lines.Select(x => x.Split(":")).ToList().ForEach(x =>
+            headersAsString = headersAsString.Substring(0, headersAsString.Length - 4); // length-4 because we dont need \r\n\r\n
+            var individualHeaders = headersAsString.Split("\r\n");
+            individualHeaders.Select(x => x.Split(":")).ToList().ForEach(x =>
             {
-                this[x[0]] = x[1]; // setting the dictionary
+                this[x[0]] = x[1].Trim(); // setting the dictionary
             });
         }
 
@@ -157,7 +177,7 @@ Accept-Language: en-US,en;q=0.5
             string str = string.Empty;
             foreach (var item in this)
             {
-                str += $"{item.Key} : {item.Value}\r\n";
+                str += $"{item.Key} => {item.Value}\r\n";
             }
             return str;
         }
