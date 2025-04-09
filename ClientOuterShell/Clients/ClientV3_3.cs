@@ -42,19 +42,19 @@ sec-ch-ua-platform: ""Windows""
         string metaLine = await GetMetaLine(sslStream); // Get the first line that contains response status code
         Console.WriteLine(metaLine);
         Console.WriteLine();
-        //HeaderList headerList = await ParseHeaders(clientSocket);
-        //var contentLength = int.Parse(headerList["Content-Length"] ?? throw new Exception());
-        //byte[] buffer = new byte[contentLength];
-        //await clientSocket.ReceiveAsync(buffer);
-        //StringBuilder responseBodyBuilder = new();
-        //responseBodyBuilder.Append(Encoding.ASCII.GetString(buffer));
-        //Console.WriteLine(responseBodyBuilder.ToString());
+        HeaderList headerList = await ParseHeaders(sslStream);
+        var contentLength = int.Parse(headerList["Content-Length"] ?? throw new Exception());
+        byte[] buffer = new byte[contentLength];
+        await sslStream.ReadAsync(buffer);
+        StringBuilder responseBodyBuilder = new();
+        responseBodyBuilder.Append(Encoding.ASCII.GetString(buffer));
+        Console.WriteLine(responseBodyBuilder.ToString());
         await clientSocket.DisconnectAsync(false);
     }
 
-    async Task<HeaderList> ParseHeaders(Socket clientSocket)
+    async Task<HeaderList> ParseHeaders(SslStream sslStream)
     {
-        string headerString = await GetEntireHeaderListAsString(clientSocket);
+        string headerString = await GetEntireHeaderListAsString(sslStream);
         HeaderList headerList = new(headerString);
         return headerList;
     }
@@ -74,7 +74,7 @@ sec-ch-ua-platform: ""Windows""
         return str.Substring(0, str.Length - 2);
     }
 
-    static async Task<string> GetEntireHeaderListAsString(Socket clientSocket)
+    static async Task<string> GetEntireHeaderListAsString(SslStream sslStream)
     {
         // HTTP headers and body are separated by \r\n\r\n (double CRLF).
         // We will check for its occurance to separate HTTP headers from body.
@@ -83,7 +83,7 @@ sec-ch-ua-platform: ""Windows""
         bool[] isDoubleCRLF = [false, false, false, false];
         while (true)
         {
-            int bytesRead = await clientSocket.ReceiveAsync(buffer);
+            int bytesRead = await sslStream.ReadAsync(buffer);
             char character = (char)buffer[0];
             if (character == '\n')
             {
