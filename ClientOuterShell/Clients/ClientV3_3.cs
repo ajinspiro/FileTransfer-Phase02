@@ -41,13 +41,23 @@ sec-ch-ua-platform: ""Windows""
         await sslStream.WriteAsync(httpRequestBytes);
         string metaLine = await GetMetaLine(sslStream); // Get the first line that contains response status code
         Console.WriteLine(metaLine);
-        Console.WriteLine();
         HeaderList headerList = await ParseHeaders(sslStream);
-        var contentLength = int.Parse(headerList["Content-Length"] ?? throw new Exception());
-        byte[] buffer = new byte[contentLength];
-        await sslStream.ReadAsync(buffer);
+        var contentLength = int.Parse(headerList["content-length"] ?? throw new Exception());
+        Console.WriteLine($"Content length: {contentLength}");
+        Console.WriteLine();
+        byte[] buffer = new byte[64 * 1024];
+        int totalBytesRead = 0, bytesRead;
         StringBuilder responseBodyBuilder = new();
-        responseBodyBuilder.Append(Encoding.ASCII.GetString(buffer));
+        do
+        {
+            bytesRead = await sslStream.ReadAsync(buffer);
+            totalBytesRead += bytesRead;
+
+            // This line ensures data in buffer from previous loop iteration doesnt pollute current iteration
+            ArraySegment<byte> data = totalBytesRead == 64 * 1024 ? new(buffer) : new(buffer, 0, bytesRead);
+            responseBodyBuilder.Append(Encoding.ASCII.GetString(data));
+        }
+        while (totalBytesRead < contentLength);
         Console.WriteLine(responseBodyBuilder.ToString());
         await clientSocket.DisconnectAsync(false);
     }
@@ -130,7 +140,7 @@ sec-ch-ua-platform: ""Windows""
             var individualHeaders = headersAsString.Split("\r\n");
             individualHeaders.Select(x => x.Split(":")).ToList().ForEach(x =>
             {
-                this[x[0]] = x[1].Trim(); // setting the dictionary
+                this[x[0].ToLowerInvariant()] = x[1].Trim(); // setting the dictionary
             });
         }
 
