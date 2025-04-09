@@ -53,11 +53,11 @@ Accept-Language: en-US,en;q=0.5
         return headerList;
     }
 
-    private async Task<string> GetMetaLine(Socket clientSocket)
+    private static async Task<string> GetMetaLine(Socket clientSocket)
     {
         StringBuilder stringBuilder = new();
         byte[] buffer = new byte[1];
-        int bytesRead = 0;
+        int bytesRead;
         do
         {
             bytesRead = await clientSocket.ReceiveAsync(buffer);
@@ -68,7 +68,7 @@ Accept-Language: en-US,en;q=0.5
         return str.Substring(0, str.Length - 2);
     }
 
-    async Task<string> GetEntireHeaderListAsString(Socket clientSocket)
+    static async Task<string> GetEntireHeaderListAsString(Socket clientSocket)
     {
         // HTTP headers and body are separated by \r\n\r\n (double CRLF).
         // We will check for its occurance to separate HTTP headers from body.
